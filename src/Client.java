@@ -6,13 +6,6 @@ import java.net.UnknownHostException;
 
 public class Client {
 
-    class ClientException extends Exception {
-        private static final long serialVersionUID = 1L;
-        public ClientException(String message) {
-            super(message);
-        }
-    }
-
     private final String hostname;
     private final int port;
 
@@ -34,7 +27,7 @@ public class Client {
      * Connect to the server and open input and output streams
      * for serializable objects, when a server is connected.
      */
-    public void openConnection() throws ClientException {
+    public void openConnection() throws CommunicationException {
         socket = null;
         os = null;
         is = null;
@@ -49,15 +42,9 @@ public class Client {
 
             System.out.println("Connected to " + hostname + ":" + port);
 
-            // Create output stream at the client (to send data to the server)
+            // Create output and input streams at the client
             os = new ObjectOutputStream(socket.getOutputStream());
-
-            System.out.println("Created output stream at the client (to send data to the server)");
-
-            // Create input stream at client (to receive data from the server).
             is = new ObjectInputStream(socket.getInputStream());
-
-            System.out.println("Created input stream at client (to receive data from the server)");
 
 
         } catch (UnknownHostException e) {
@@ -87,7 +74,7 @@ public class Client {
      * Send a serializable object to the server.
      * @param Serializable object to send
      */
-    public void sendObject(Serializable object) throws ClientException {
+    public void sendObject(Serializable object) throws CommunicationException {
         System.out.println("Sending " + object.toString());
         try {
             os.writeObject(object);
@@ -101,7 +88,7 @@ public class Client {
      * <strong>Blocking</strong> method to receive a serializable object from the server.
      * @return Serializable object received
      */
-    public Object receiveObject() throws ClientException {
+    public Object receiveObject() throws CommunicationException {
         try {
             return is.readObject();
         } catch (IOException e) {
@@ -120,11 +107,11 @@ public class Client {
         return hostname + ":" + port;
     }
 
-    private void handleError(String message, Exception e) throws ClientException {
+    private void handleError(String message, Exception e) throws CommunicationException {
         System.err.println(message);
         e.printStackTrace();
         this.closeConnection();
-        throw new ClientException(message);
+        throw new CommunicationException(message);
     }
     
 }

@@ -1,7 +1,5 @@
 package src;
 
-import src.Client.ClientException;
-
 /**
  * MasterThread.java
  * 
@@ -10,41 +8,43 @@ import src.Client.ClientException;
 public class MasterWaitingThread extends Thread{
 
     private final Client client;
-    private boolean readyToShuffle = false;
+    private final SynchronizationMessage expectedMessage;
+    private boolean ready = false;
 
     /**
      * Constructor.
      * @param Client the client which is connected to the slave
      */
-    public MasterWaitingThread(Client client) {
+    public MasterWaitingThread(Client client, SynchronizationMessage expectedMessage) {
         if (client == null) {
             throw new IllegalArgumentException("Client cannot be null.");
         }
         this.client = client;
+        this.expectedMessage = expectedMessage;
     }
 
     @Override
     public void run() {
 
-        // Wait for READY_TO_SHUFFLE
+        // Wait for the slave to send the expected message
 
         try {
             Object message = client.receiveObject();
-            if (message == SynchronizationMessage.READY_TO_SHUFFLE) {
-                this.readyToShuffle = true;
-                System.out.println("Received READY_TO_SHUFFLE from " + client.getAddress());
+            System.out.println("Received " + message + " from " + client.getAddress());
+            if (message == this.expectedMessage) {
+                this.ready = true;
             } else {
-                System.err.println("Received " + message + " from " + client.getAddress());
+                throw new CommunicationException("Received an unexpected message instead of " + this.expectedMessage);
             }
-        } catch (ClientException e) {
+        } catch (CommunicationException e) {
             System.err.println("Error in thread " + this.getId() + ": " + e.getMessage());
             System.exit(1);
         }
 
     }
 
-    public boolean isReadyToShuffle() {
-        return this.readyToShuffle;
+    public boolean isReady() {
+        return this.ready;
     }
     
 }

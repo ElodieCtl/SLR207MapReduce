@@ -4,26 +4,27 @@ import java.io.* ;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
-import src.Client.ClientException;
-
 public class Master {
 
     private static final File TEMP_DIRECTORY = new File(System.getProperty("java.io.tmpdir"));
     private static final String LOGIN = "echatelin-21" ;
     private static final int PORT = 9999;
     private static final String[] HOSTNAMES = {"tp-3b07-13.enst.fr", "tp-3b07-14.enst.fr", "tp-3b07-15.enst.fr"} ;
+
+
     private final Client[] clients = new Client[HOSTNAMES.length];
+    private final long[] chronos = new long[2];
 
     public static void main(String[] args) {
         System.out.println("Master program started !");
         try {
             new Master().run();
-        } catch (ClientException e) {
+        } catch (CommunicationException e) {
             System.exit(1);
         }
     }
 
-    public void run() throws Client.ClientException {
+    public void run() throws CommunicationException {
         System.out.println("Master awake!");
 
         // Connect to all slaves
@@ -36,10 +37,12 @@ public class Master {
 
         // Send START to all slaves and wait for READY_TO_SHUFFLE
 
-        MasterWaitingThread[] threads = new MasterWaitingThread[HOSTNAMES.length];
+        completeStep(0, SynchronizationMessage.START, SynchronizationMessage.READY_TO_SHUFFLE);
+
+        /*MasterWaitingThread[] threads = new MasterWaitingThread[HOSTNAMES.length];
         for (int i = 0; i < HOSTNAMES.length; i++) {
             clients[i].sendObject(SynchronizationMessage.START);
-            threads[i] = new MasterWaitingThread(clients[i]);
+            threads[i] = new MasterWaitingThread(clients[i], SynchronizationMessage.READY_TO_SHUFFLE);
             threads[i].start();
         }
         System.out.println("Master sent START to all slaves and waits for them to be ready to shuffle !");
@@ -49,7 +52,7 @@ public class Master {
         try {
             for (Thread t : threads) {
                 t.join();
-                if (!((MasterWaitingThread)t).isReadyToShuffle()) {
+                if (!((MasterWaitingThread)t).isReady()) {
                     System.err.println("A slave is not ready to shuffle !");
                     return;
                 }
@@ -59,12 +62,46 @@ public class Master {
             e.printStackTrace();
             System.exit(1);
         }
-        System.out.println("Master received READY_TO_SHUFFLE from all slaves !");
+        System.out.println("Master received READY_TO_SHUFFLE from all slaves !"); */
 
         for (Client client : clients) {
             client.sendObject(SynchronizationMessage.SHUFFLE);
         }
+        
+        printChronos();
 
+    }
+
+    private void completeStep(int stepIndex, SynchronizationMessage launchMessage, SynchronizationMessage response) throws CommunicationException {
+        MasterWaitingThread[] threads = new MasterWaitingThread[HOSTNAMES.length];
+        long start = System.currentTimeMillis();
+        for (int i = 0; i < HOSTNAMES.length; i++) {
+            clients[i].sendObject(launchMessage);
+            threads[i] = new MasterWaitingThread(clients[i], response);
+            threads[i].start();
+        }
+        System.out.println("Master sent "+launchMessage+" to all slaves and waits for them to be ready !");
+        try {
+            for (Thread t : threads) {
+                t.join();
+                if (!((MasterWaitingThread)t).isReady()) {
+                    System.err.println("A slave is not ready !");
+                    return;
+                }
+            }
+        } catch (InterruptedException e) {
+            System.err.println("Master interrupted while waiting for slaves to be ready !");
+            e.printStackTrace();
+            System.exit(1);
+        }
+        long end = System.currentTimeMillis();
+        chronos[stepIndex] = end - start;
+        System.out.println("Master received "+response+" from all slaves !");
+    }
+
+    private void printChronos() {
+        System.out.println("Map : " + chronos[0] + "ms");
+        System.out.println("Shuffle : " + chronos[1] + "ms");
     }
 
     /*

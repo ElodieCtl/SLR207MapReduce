@@ -1,4 +1,4 @@
-<project name="SLR207Project" default="compile" basedir=".">
+<project name="SLR207Project" default="all" basedir=".">
   <description>
     Project which implements a Map Reduce
   </description>
@@ -48,6 +48,20 @@
 
   <target name="gather-log"
         description="deploy the project">
+    <!-- Execute the script to gather the log files from the master and the slaves -->
+    <exec executable="${bash}">
+      <arg value="${deploy}/log.sh"/>
+    </exec>
+  </target>
+
+  <target name="all"
+        description="deploy the project">
+    <!-- Execute the script to deploy the master and the slaves -->
+    <exec executable="${bash}">
+      <arg value="${deploy}/deploy_new.sh"/>
+    </exec>
+    <!-- Wait 10 seconds -->
+    <sleep seconds="10"/>
     <!-- Execute the script to gather the log files from the master and the slaves -->
     <exec executable="${bash}">
       <arg value="${deploy}/log.sh"/>

@@ -2,8 +2,6 @@ package src;
 
 import java.io.*;
 import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -37,14 +35,10 @@ public class Slave {
 
         String hostname = null;
 
-        try
-        {
-            InetAddress addr;
-            addr = InetAddress.getLocalHost();
+        try {
+            InetAddress addr = InetAddress.getLocalHost();
             hostname = addr.getHostName();
-        }
-        catch (UnknownHostException ex)
-        {
+        } catch (UnknownHostException ex) {
             System.err.println("Hostname can't be resolved");
             System.exit(1);
         }
@@ -74,7 +68,12 @@ public class Slave {
         //     help();
         // }
 
-        new Slave(id).run() ;
+        try {
+            new Slave(id).run() ;
+        } catch (CommunicationException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
 
         System.out.println("Slave program finished.");
     }
@@ -95,11 +94,11 @@ public class Slave {
         this.serverForMaster = new Server(PORT + this.id) ;
     }
 
-    public void run() {
+    public void run() throws CommunicationException {
         System.out.println("Slave " + id + " started.");
 
         // Open connection to the master and wait for the start message
-         
+        
         serverForMaster.openConnection();
         Object message = serverForMaster.receiveObject() ;
         if (message != SynchronizationMessage.START) {
@@ -114,9 +113,7 @@ public class Slave {
         // Shuffle
         HashMap<String, Integer>[] toShuffle = prepareForShuffle(mapResult) ;
         System.out.println("Slave " + id + " toShuffle:") ;
-        for (int i = 0; i < toShuffle.length; i++) {
-            System.out.println("Slave " + id + " toShuffle[" + i + "] = " + toShuffle[i]) ;
-        }
+        Utils.prettyPrintTable(toShuffle) ;
         HashMap<String, Integer>[] shuffleResult = shuffle(toShuffle) ;
 
         // Reduce
@@ -141,75 +138,6 @@ public class Slave {
             System.exit(1);
         }
         return file;
-    }
-
-    ///////////////////////////// SERVER /////////////////////////////
-    
-    private ObjectInputStream[] is = new ObjectInputStream[MACHINE_NAMES.length];
-    private ObjectOutputStream[] os = new ObjectOutputStream[MACHINE_NAMES.length];
-    private Socket[] socketOfServer = new Socket[MACHINE_NAMES.length];
-
-    /**
-     * Opens a server socket on port 9999 + machineIndex
-     * @param machineIndex the index of the machine to open the connection to
-     */
-    public void openConnection(int machineIndex) {
-        ServerSocket listener = null;
-        int port = PORT + machineIndex ;
-        
-        // Try to open a server socket on port 9999
-        // Note that we can't choose a port less than 1023 if we are not
-        // privileged users (root)
-        
-        try {
-            listener = new ServerSocket(port);
-        } catch (IOException e) {
-            System.out.println(e);
-            System.exit(1);
-        }
-        
-        try {
-            System.out.println("Slave "+ this.id + " is waiting for incoming connection on port "+ port +"...");
-            
-            // Accept client connection request
-            // Get new Socket at Server.    
-            socketOfServer[machineIndex] = listener.accept();
-            System.out.println("Slave "+ this.id + " has accepted a client on port "+ port +" !");
-            
-            // Open input and output streams
-            is[machineIndex] = new ObjectInputStream(socketOfServer[machineIndex].getInputStream());
-            os[machineIndex] = new ObjectOutputStream(socketOfServer[machineIndex].getOutputStream());
-            
-        } catch (IOException e) {
-            System.out.println(e);
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Close the connection to the clients (input and output streams and socket)
-     * on port 9999 + machineIndex
-     * @param machineIndex the index of the machine to close the connection to
-     */
-    public void closeConnection(int machineIndex) {
-        try {
-            if (is != null) is[machineIndex].close();
-            if (os != null) os[machineIndex].close();
-            if (socketOfServer != null) socketOfServer[machineIndex].close();
-        } catch (IOException e) {
-            System.out.println(e);
-            e.printStackTrace();
-        }
-    }
-
-    public void sendToMachine(int index, Serializable object) {
-        try {
-            os[index].writeObject(object);
-            os[index].flush();
-        } catch (IOException e) {
-            System.out.println(e);
-            e.printStackTrace();
-        }
     }
 
     ///////////////////////////// STEPS OF MAPREDUCE /////////////////////////////
@@ -307,7 +235,7 @@ public class Slave {
      * Send the packets to each machine to reduce them
      * @param packets the packets to shuffle
      */
-    public HashMap<String,Integer>[] shuffle(HashMap<String, Integer>[] packets) {
+    public HashMap<String,Integer>[] shuffle(HashMap<String, Integer>[] packets) throws CommunicationException{
 
         // listen to other slaves to receive the packets to reduce
 

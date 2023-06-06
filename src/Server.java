@@ -30,7 +30,7 @@ public class Server {
      * <strong>Blocking</strong> method to create a ServerSocket and wait for a connection.
      * Open input and output streams for serializable objects, when a client is accepted.
      */
-    public void openConnection() {
+    public void openConnection() throws CommunicationException {
         listener = null;
         socket = null;
         os = null;
@@ -39,9 +39,7 @@ public class Server {
         try {
             listener = new ServerSocket(port);
         } catch (IOException e) {
-            System.err.println("Couldn't listen on port " + port);
-            e.printStackTrace();
-            System.exit(1);
+            handleError("Couldn't listen on port " + port, e);
         }
 
         System.out.println("Server is waiting for incoming connection on port "+ port +"...");
@@ -56,21 +54,20 @@ public class Server {
             os = new ObjectOutputStream(socket.getOutputStream());
             
         } catch (IOException e) {
-            System.out.println(e);
-            e.printStackTrace();
+            handleError("IOException when accepting the client or open streams", e);
         }
     }
 
     /**
      * Close all the sockets and streams.
      */
-    public void closeConnection() {
+    public void closeConnection() throws CommunicationException {
         try {
             if (listener != null) {
                 listener.close();
             }
         } catch (IOException e) {
-            System.err.println("Couldn't close socket.");
+            handleError("Couldn't close socket.", e);
         }
     }
 
@@ -78,12 +75,12 @@ public class Server {
      * Send a serializable object to the client.
      * @param object the object to send
      */
-    public void sendObject(Serializable object) {
+    public void sendObject(Serializable object) throws CommunicationException {
         try {
             os.writeObject(object);
             os.flush();
         } catch (IOException e) {
-            System.err.println("Couldn't send object + " + object.toString());
+            handleError("Couldn't send object + " + object.toString(), e);
         }
     }
 
@@ -91,15 +88,13 @@ public class Server {
      * <strong>Blocking</strong> method to receive a serializable object from the client.
      * @return the object received
      */
-    public Object receiveObject() {
+    public Object receiveObject() throws CommunicationException {
         try {
             return is.readObject();
         } catch (IOException e) {
-            System.err.println("Couldn't receive object.");
-            e.printStackTrace();
+            handleError("Couldn't receive object.", e);
         } catch (ClassNotFoundException e) {
-            System.err.println("Couldn't receive object.");
-            e.printStackTrace();
+            handleError("The received object doesn't match any class.", e);
         }
         return null;
     }
@@ -110,6 +105,13 @@ public class Server {
      */
     public int getPort() {
         return port;
+    }
+
+    private void handleError(String message, Exception e) throws CommunicationException {
+        System.err.println(message);
+        e.printStackTrace();
+        this.closeConnection();
+        throw new CommunicationException(message);
     }
     
 }
