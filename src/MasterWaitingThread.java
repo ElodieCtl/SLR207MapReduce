@@ -1,5 +1,7 @@
 package src;
 
+import src.Client.ClientException;
+
 /**
  * MasterThread.java
  * 
@@ -26,12 +28,17 @@ public class MasterWaitingThread extends Thread{
 
         // Wait for READY_TO_SHUFFLE
 
-        Object message = client.receiveObject() ;
-        if (message == SynchronizationMessage.READY_TO_SHUFFLE) {
-            this.readyToShuffle = true;
-            System.out.println("Received READY_TO_SHUFFLE from " + client.getAddress());
-        } else {
-            System.err.println("Received " + message + " from " + client.getAddress());
+        try {
+            Object message = client.receiveObject();
+            if (message == SynchronizationMessage.READY_TO_SHUFFLE) {
+                this.readyToShuffle = true;
+                System.out.println("Received READY_TO_SHUFFLE from " + client.getAddress());
+            } else {
+                System.err.println("Received " + message + " from " + client.getAddress());
+            }
+        } catch (ClientException e) {
+            System.err.println("Error in thread " + this.getId() + ": " + e.getMessage());
+            System.exit(1);
         }
 
     }

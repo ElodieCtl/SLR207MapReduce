@@ -60,6 +60,7 @@ public class SlaveServerThread extends Thread {
         while (true) {
             try {
                 Object received = is.readObject();
+                System.out.println("Thread " + this.getId() + " received " + received);
                 if (received.equals(SynchronizationMessage.END)) {
                     break;
                 } else if (received instanceof HashMap) {

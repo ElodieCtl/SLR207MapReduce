@@ -4,6 +4,8 @@ import java.io.* ;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+import src.Client.ClientException;
+
 public class Master {
 
     private static final File TEMP_DIRECTORY = new File(System.getProperty("java.io.tmpdir"));
@@ -14,10 +16,14 @@ public class Master {
 
     public static void main(String[] args) {
         System.out.println("Master program started !");
-        new Master().run();
+        try {
+            new Master().run();
+        } catch (ClientException e) {
+            System.exit(1);
+        }
     }
 
-    public void run() {
+    public void run() throws Client.ClientException {
         System.out.println("Master awake!");
 
         // Connect to all slaves

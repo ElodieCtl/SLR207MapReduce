@@ -88,17 +88,20 @@ public class Slave {
     ///////////////////////////// CONSTRUCTOR AND RUN /////////////////////////////
 
     private final int id ;
+    private final Server serverForMaster ;
 
     public Slave(int id) {
         this.id = id ;
+        this.serverForMaster = new Server(PORT + this.id) ;
     }
 
     public void run() {
         System.out.println("Slave " + id + " started.");
 
         // Open connection to the master and wait for the start message
-        openConnection(id) ;
-        SynchronizationMessage message = waitForMaster() ;
+         
+        serverForMaster.openConnection();
+        Object message = serverForMaster.receiveObject() ;
         if (message != SynchronizationMessage.START) {
             System.err.println("Slave " + id + " received " + message + " instead of START.") ;
             System.exit(1) ;
@@ -197,29 +200,6 @@ public class Slave {
             System.out.println(e);
             e.printStackTrace();
         }
-    }
-
-    public void sendToMaster(SynchronizationMessage message) {
-        try {
-            os[this.id].writeObject(message);
-            os[this.id].flush();
-        } catch (IOException e) {
-            System.out.println(e);
-            e.printStackTrace();
-        }
-    }
-
-    public SynchronizationMessage waitForMaster() {
-        try {
-            return (SynchronizationMessage) is[this.id].readObject();
-        } catch (IOException e) {
-            System.out.println(e);
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            System.out.println(e);
-            e.printStackTrace();
-        }
-        return null;
     }
 
     public void sendToMachine(int index, Serializable object) {
@@ -342,8 +322,8 @@ public class Slave {
         // Synchronization : wait for the master to collect
         // all READY_TO_SHUFFLE messages to launch the shuffle phase
 
-        sendToMaster(SynchronizationMessage.READY_TO_SHUFFLE);
-        SynchronizationMessage message = waitForMaster();
+        serverForMaster.sendObject(SynchronizationMessage.READY_TO_SHUFFLE);
+        Object message = serverForMaster.receiveObject();
         if (message != SynchronizationMessage.SHUFFLE) {
             System.err.println("Error : expected SHUFFLE message, received " + message);
             System.exit(1);
@@ -367,7 +347,7 @@ public class Slave {
             } catch (InterruptedException e) {
                 System.err.println("Interrupted while waiting for a client thread to join");
                 e.printStackTrace();
-                System.exit(1);
+                System.exit(0);
             }
         }
         System.out.println("All client threads finished");

@@ -9,5 +9,13 @@ public class Utils {
             System.out.println(key + " : " + map.get(key));
         }
     }
+
+    public static void prettyPrintTable(Object[] table) {
+        System.out.print("{");
+        for (Object row : table) {
+            System.out.print(row + ", ");
+        }
+        System.out.println("}");
+    }
     
 }

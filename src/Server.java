@@ -4,6 +4,11 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+/**
+ * Server.java
+ * 
+ * A simple server that can accept one connection from a client and exchange Serializable objects.
+ */
 public class Server {
 
     private final int port;
@@ -21,6 +26,10 @@ public class Server {
         this.port = port;
     }
 
+    /**
+     * <strong>Blocking</strong> method to create a ServerSocket and wait for a connection.
+     * Open input and output streams for serializable objects, when a client is accepted.
+     */
     public void openConnection() {
         listener = null;
         socket = null;
@@ -52,6 +61,9 @@ public class Server {
         }
     }
 
+    /**
+     * Close all the sockets and streams.
+     */
     public void closeConnection() {
         try {
             if (listener != null) {
@@ -62,6 +74,10 @@ public class Server {
         }
     }
 
+    /**
+     * Send a serializable object to the client.
+     * @param object the object to send
+     */
     public void sendObject(Serializable object) {
         try {
             os.writeObject(object);
@@ -71,6 +87,10 @@ public class Server {
         }
     }
 
+    /**
+     * <strong>Blocking</strong> method to receive a serializable object from the client.
+     * @return the object received
+     */
     public Object receiveObject() {
         try {
             return is.readObject();
@@ -84,6 +104,10 @@ public class Server {
         return null;
     }
 
+    /**
+     * Get the port of the server.
+     * @return the port as an int
+     */
     public int getPort() {
         return port;
     }
