@@ -3,7 +3,7 @@ package src;
 /**
  * MasterThread.java
  * 
- * A Thread for the master to connect to slaves, as a client.
+ * A Thread for the master to wait for the slave to send a message.
  */
 public class MasterWaitingThread extends Thread{
 
@@ -14,6 +14,7 @@ public class MasterWaitingThread extends Thread{
     /**
      * Constructor.
      * @param Client the client which is connected to the slave
+     * @param SynchronizationMessage the message expected from the slave
      */
     public MasterWaitingThread(Client client, SynchronizationMessage expectedMessage) {
         if (client == null) {

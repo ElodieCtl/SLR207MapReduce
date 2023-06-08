@@ -13,7 +13,7 @@ public class Master {
 
 
     private final Client[] clients = new Client[HOSTNAMES.length];
-    private final long[] chronos = new long[2];
+    private final long[] chronos = new long[3];
 
     public static void main(String[] args) {
         System.out.println("Master program started !");
@@ -39,40 +39,54 @@ public class Master {
 
         completeStep(0, SynchronizationMessage.START, SynchronizationMessage.READY_TO_SHUFFLE);
 
-        /*MasterWaitingThread[] threads = new MasterWaitingThread[HOSTNAMES.length];
-        for (int i = 0; i < HOSTNAMES.length; i++) {
-            clients[i].sendObject(SynchronizationMessage.START);
-            threads[i] = new MasterWaitingThread(clients[i], SynchronizationMessage.READY_TO_SHUFFLE);
-            threads[i].start();
-        }
-        System.out.println("Master sent START to all slaves and waits for them to be ready to shuffle !");
+        // Send SHUFFLE to all slaves and wait for READY_TO_REDUCE
 
-        // Wait for all slaves to be ready to shuffle and then send SHUFFLE
+        completeStep(1, SynchronizationMessage.SHUFFLE, SynchronizationMessage.READY_TO_REDUCE);
 
-        try {
-            for (Thread t : threads) {
-                t.join();
-                if (!((MasterWaitingThread)t).isReady()) {
-                    System.err.println("A slave is not ready to shuffle !");
-                    return;
-                }
-            }
-        } catch (InterruptedException e) {
-            System.err.println("Master interrupted while waiting for slaves to be ready to shuffle !");
-            e.printStackTrace();
-            System.exit(1);
-        }
-        System.out.println("Master received READY_TO_SHUFFLE from all slaves !"); */
+        // Send REDUCE to all slaves and wait for the reduced maps
 
-        for (Client client : clients) {
-            client.sendObject(SynchronizationMessage.SHUFFLE);
-        }
+        SortedMap reducedMap = completeReduce();
+
+        // Print the reduced map and the duration of each step
         
+        reducedMap.print();
         printChronos();
 
     }
 
-    private void completeStep(int stepIndex, SynchronizationMessage launchMessage, SynchronizationMessage response) throws CommunicationException {
+    private SortedMap completeReduce() throws CommunicationException {
+        MasterCollectingThread[] threads = new MasterCollectingThread[HOSTNAMES.length];
+        long start = System.currentTimeMillis();
+        for (int i = 0; i < HOSTNAMES.length; i++) {
+            clients[i].sendObject(SynchronizationMessage.REDUCE);
+            threads[i] = new MasterCollectingThread(clients[i]);
+            threads[i].start();
+        }
+        System.out.println("Master sent REDUCE to all slaves and waits for them to be ready !");
+        SortedMap reducedMap = new SortedMap().reduce();
+        try {
+            for (MasterCollectingThread t : threads) {
+                t.join();
+                SortedMap map = t.getSortedMap();
+                if (map == null) {
+                    System.err.println("A slave did not send a map !");
+                    return null;
+                }
+                reducedMap = reducedMap.mergeWith(map);
+            }
+        } catch (InterruptedException e) {
+            System.err.println("Master interrupted while waiting for slaves to be ready !");
+            e.printStackTrace();
+            System.exit(1);
+        }
+        long end = System.currentTimeMillis();
+        chronos[2] = end - start;
+        System.out.println("Master received reduced maps from all slaves !");
+        return reducedMap;
+    }
+
+    private void completeStep(int stepIndex, SynchronizationMessage launchMessage, SynchronizationMessage response)
+        throws CommunicationException {
         MasterWaitingThread[] threads = new MasterWaitingThread[HOSTNAMES.length];
         long start = System.currentTimeMillis();
         for (int i = 0; i < HOSTNAMES.length; i++) {
@@ -82,11 +96,11 @@ public class Master {
         }
         System.out.println("Master sent "+launchMessage+" to all slaves and waits for them to be ready !");
         try {
-            for (Thread t : threads) {
+            for (MasterWaitingThread t : threads) {
                 t.join();
-                if (!((MasterWaitingThread)t).isReady()) {
+                if (!t.isReady()) {
                     System.err.println("A slave is not ready !");
-                    return;
+                    System.exit(1);
                 }
             }
         } catch (InterruptedException e) {
@@ -102,6 +116,7 @@ public class Master {
     private void printChronos() {
         System.out.println("Map : " + chronos[0] + "ms");
         System.out.println("Shuffle : " + chronos[1] + "ms");
+        System.out.println("Reduce : " + chronos[2] + "ms");
     }
 
     /*

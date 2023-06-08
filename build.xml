@@ -60,8 +60,8 @@
     <exec executable="${bash}">
       <arg value="${deploy}/deploy_new.sh"/>
     </exec>
-    <!-- Wait 10 seconds -->
-    <sleep seconds="10"/>
+    <!-- Wait 15 seconds -->
+    <sleep seconds="15"/>
     <!-- Execute the script to gather the log files from the master and the slaves -->
     <exec executable="${bash}">
       <arg value="${deploy}/log.sh"/>

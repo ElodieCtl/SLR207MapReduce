@@ -25,7 +25,7 @@ public class Slave {
     private static final String SPLIT_DIRECTORY = "../data/" ;
     private static final String[] SPLIT_PORTIONS = {"Deer Beer River", "Car Car River", "Deer Car Beer"} ;
     private static final String[] MACHINE_NAMES = {"tp-3b07-13", "tp-3b07-14", "tp-3b07-15"} ;
-    private static final String MASTER_NAME = "tp-3b07-16" ;
+    private static final String MASTER_NAME = "tp-3b07-12" ;
 
     ///////////////////////////// MAIN /////////////////////////////
 
@@ -232,6 +232,22 @@ public class Slave {
     }
 
     /**
+     * <strong>Blocking</strong> method to send the message to master to signal the end of the step
+     * and wait for the message to continue
+     * @param endMessage the message to send to master to signal the end of the step
+     * @param continueMessage the message to receive from master to signal the continuation of the step
+     * @throws CommunicationException
+     */
+    private void nextStep(SynchronizationMessage endMessage, SynchronizationMessage continueMessage) throws CommunicationException {
+        serverForMaster.sendObject(endMessage);
+        Object message = serverForMaster.receiveObject();
+        if (message != continueMessage) {
+            System.err.println("Error : expected "+continueMessage+" message, received " + message);
+            System.exit(1);
+        }
+    }
+
+    /**
      * Send the packets to each machine to reduce them
      * @param packets the packets to shuffle
      */
@@ -250,12 +266,7 @@ public class Slave {
         // Synchronization : wait for the master to collect
         // all READY_TO_SHUFFLE messages to launch the shuffle phase
 
-        serverForMaster.sendObject(SynchronizationMessage.READY_TO_SHUFFLE);
-        Object message = serverForMaster.receiveObject();
-        if (message != SynchronizationMessage.SHUFFLE) {
-            System.err.println("Error : expected SHUFFLE message, received " + message);
-            System.exit(1);
-        }
+        nextStep(SynchronizationMessage.READY_TO_SHUFFLE, SynchronizationMessage.SHUFFLE);
 
         // Send the packets to the machines using client threads
 
@@ -317,7 +328,10 @@ public class Slave {
      * @param shuffledMaps the packets to reduce
      * @return Hashmap of the words with their occurence according to all the packets received
      */
-    public static HashMap<String,Integer> reduce(HashMap<String,Integer>[] shuffledMaps) {
+    public HashMap<String,Integer> reduce(HashMap<String,Integer>[] shuffledMaps) throws CommunicationException{
+
+        nextStep(SynchronizationMessage.READY_TO_REDUCE, SynchronizationMessage.REDUCE);
+
         HashMap<String,Integer> result = new HashMap<String,Integer>();
         for (HashMap<String,Integer> map : shuffledMaps) {
             for (Entry<String,Integer> pair : map.entrySet()) {
@@ -329,6 +343,9 @@ public class Slave {
                 result.put(pair.getKey(), value + pair.getValue());
             }
         }
+
+        serverForMaster.sendObject(result);
+        
         return result;
     }
 }
