@@ -1,18 +1,19 @@
 #!/bin/bash
-# A simple variable example
-login="echatelin-21"
-remoteFolder="/tmp/$login/"
-#fileName="SimpleServerProgram"
-fileName="src/Slave"
-fileExtension=".java"
-#computers=("tp-1a201-06" "tp-1a201-02" "tp-1a201-03" "tp-1a201-04" "tp-1a201-05")
-#computers=("tp-1a201-06")
-computers=("tp-3b07-13" "tp-3b07-14" "tp-3b07-15")
+
+source DEPLOY/config.sh
+
+# Deploy the slaves
+
 for c in ${computers[@]}; do
+  echo "Deploying slave on $c"
+  # kill all java processes
   command0=("ssh" "$login@$c" "lsof -ti | xargs kill -9")
+  # remove remote folder and create it again
   command1=("ssh" "$login@$c" "rm -rf $remoteFolder;mkdir $remoteFolder")
-  command2=("scp" "../$fileName$fileExtension" "$login@$c:$remoteFolder$fileName$fileExtension")
-  command3=("ssh" "$login@$c" "cd $remoteFolder;javac $fileName$fileExtension;java $fileName")
+  command2=("scp" "-r" "$directory" "$login@$c:$remoteFolder$directory")
+  command3=("scp" "$buildFilename" "$login@$c:$remoteFolder$buildFilename")
+  # compile and run
+  command4=("ssh" "$login@$c" "cd $remoteFolder;ant $slaveCommand > $logFilename")
   echo ${command0[*]}
   "${command0[@]}"
   echo ${command1[*]}
@@ -20,5 +21,33 @@ for c in ${computers[@]}; do
   echo ${command2[*]}
   "${command2[@]}"
   echo ${command3[*]}
-  "${command3[@]}" &
+  "${command3[@]}"
+  echo ${command4[*]}
+  "${command4[@]}" &
 done
+
+# Deploy the master
+
+echo "Deploying master on $master"
+# kill all java processes
+command0=("ssh" "$login@$master" "lsof -ti | xargs kill -9")
+# remove remote folder and create it again
+command1=("ssh" "$login@$master" "rm -rf $remoteFolder;mkdir $remoteFolder")
+command2=("scp" "-r" "$directory" "$login@$master:$remoteFolder$directory")
+command3=("scp" "$buildFilename" "$login@$master:$remoteFolder$buildFilename")
+# don't forget to copy the data file
+#command5=("scp" "../$dataFilename" "$login@$master:$remoteFolder$dataFilename")
+# compile and run
+command4=("ssh" "$login@$master" "cd $remoteFolder;ant $masterCommand > $logFilename")
+echo ${command0[*]}
+"${command0[@]}"
+echo ${command1[*]}
+"${command1[@]}"
+echo ${command2[*]}
+"${command2[@]}"
+echo ${command3[*]}
+"${command3[@]}"
+#echo ${command5[*]}
+#"${command5[@]}"
+echo ${command4[*]}
+"${command4[@]}" &

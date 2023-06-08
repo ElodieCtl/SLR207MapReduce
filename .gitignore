@@ -1,3 +1,6 @@
 *.class
 data
 log
+DEPLOY
+!*.sh
+examples

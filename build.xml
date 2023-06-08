@@ -42,7 +42,7 @@
         description="deploy the project">
     <!-- Execute the script to deploy the master and the slaves -->
     <exec executable="${bash}">
-      <arg value="${deploy}/deploy_new.sh"/>
+      <arg value="${deploy}/deploy.sh"/>
     </exec>
   </target>
 
@@ -57,15 +57,11 @@
   <target name="all"
         description="deploy the project">
     <!-- Execute the script to deploy the master and the slaves -->
-    <exec executable="${bash}">
-      <arg value="${deploy}/deploy_new.sh"/>
-    </exec>
+    <antcall target="deploy"/>
     <!-- Wait 15 seconds -->
     <sleep seconds="15"/>
     <!-- Execute the script to gather the log files from the master and the slaves -->
-    <exec executable="${bash}">
-      <arg value="${deploy}/log.sh"/>
-    </exec>
+    <antcall target="gather-log"/>
   </target>
 
   <target name="clean"
