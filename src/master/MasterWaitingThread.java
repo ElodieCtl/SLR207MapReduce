@@ -1,4 +1,8 @@
-package src;
+package src.master;
+
+import src.Client;
+import src.CommunicationException;
+import src.SynchronizationMessage;
 
 /**
  * MasterThread.java

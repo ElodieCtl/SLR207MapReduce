@@ -290,6 +290,10 @@ public class SortedMap implements Serializable {
         for (Pair pair : this.list) {
             System.out.println("["+i+"] "+pair.key + " : " + pair.value);
             i++;
+            if (i > 50) {
+                System.out.println("...");
+                return;
+            }
         }
     }
 }

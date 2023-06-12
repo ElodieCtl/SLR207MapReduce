@@ -75,7 +75,7 @@ public class Client {
      * @param Serializable object to send
      */
     public void sendObject(Serializable object) throws CommunicationException {
-        System.out.println("Sending " + object.toString());
+        // System.out.println("Sending " + object.toString());
         try {
             os.writeObject(object);
             os.flush();

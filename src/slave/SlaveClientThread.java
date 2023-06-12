@@ -1,7 +1,10 @@
-package src;
+package src.slave;
 
 import java.io.PrintStream;
 import java.io.Serializable;
+
+import src.Client;
+import src.CommunicationException;
 
 /**
  * SlaveClientThread.java
@@ -22,8 +25,8 @@ public class SlaveClientThread extends Thread {
     public SlaveClientThread(String serverHost, int serverPort, Serializable object) {
         this.client = new Client(serverHost, serverPort);
         this.object = object;
-        printOut("-> client thread for " + serverHost + ":" + serverPort
-                + " to send " + object);
+        // printOut("-> client thread for " + serverHost + ":" + serverPort
+        //        + " to send " + object);
     }
     
     @Override
@@ -32,7 +35,7 @@ public class SlaveClientThread extends Thread {
             this.client.openConnection();
             printOut("connected to " + this.client.getAddress());
             this.client.sendObject(this.object);
-            printOut("sent data" + this.object);
+            // printOut("sent data" + this.object);
             this.client.closeConnection();
         } catch (CommunicationException e) {
             printErr("error during communication : " + e.getMessage());

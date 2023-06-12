@@ -29,13 +29,13 @@
   <target name="run-master" depends="compile"
         description="run the master">
     <!-- Execute the Java code from ${build} -->
-    <java classname="src.Master" classpath="${build}"/>
+    <java classname="src.master.Master" classpath="${build}"/>
   </target>
 
   <target name="run-slave" depends="compile"
         description="run the slave">
     <!-- Execute the Java code from ${build} -->
-    <java classname="src.Slave" classpath="${build}"/>
+    <java classname="src.slave.Slave" classpath="${build}"/>
   </target>
 
   <target name="deploy"
@@ -58,8 +58,8 @@
         description="deploy the project">
     <!-- Execute the script to deploy the master and the slaves -->
     <antcall target="deploy"/>
-    <!-- Wait 15 seconds -->
-    <sleep seconds="15"/>
+    <!-- Wait 30 seconds -->
+    <sleep seconds="30"/>
     <!-- Execute the script to gather the log files from the master and the slaves -->
     <antcall target="gather-log"/>
   </target>

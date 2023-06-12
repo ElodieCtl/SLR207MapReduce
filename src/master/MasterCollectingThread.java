@@ -1,6 +1,10 @@
-package src;
+package src.master;
 
 import java.util.HashMap;
+
+import src.Client;
+import src.CommunicationException;
+import src.SortedMap;
 
 /**
  * MasterCollectingThread.java
@@ -31,7 +35,7 @@ public class MasterCollectingThread extends Thread{
 
         try {
             Object message = client.receiveObject();
-            System.out.println("Received " + message + " from " + client.getAddress());
+            System.out.println("Received an Object from " + client.getAddress());
             if (message instanceof HashMap) {
                 this.collectedData.insertHashMap((HashMap<String,Integer>) message);
             } else {

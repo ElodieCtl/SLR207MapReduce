@@ -1,7 +1,10 @@
-package src;
+package src.slave;
 
 import java.io.PrintStream;
 import java.util.HashMap;
+
+import src.CommunicationException;
+import src.Server;
 
 /**
  * SlaveServerThread.java
@@ -29,7 +32,7 @@ public class SlaveServerThread extends Thread {
             server.openConnection();
             printOut("accepted connection");
             Object received = server.receiveObject();
-            printOut("Thread " + this.getId() + " received " + received);
+            // printOut("Thread " + this.getId() + " received " + received);
             if (received instanceof HashMap) {
                 data = (HashMap<String, Integer>) received;
             } else {

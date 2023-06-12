@@ -1,10 +1,14 @@
-package src;
+package src.slave;
 
 import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map.Entry;
+
+import src.CommunicationException;
+import src.Server;
+import src.SynchronizationMessage;
 
 /**
  * Slave.java
@@ -18,20 +22,26 @@ import java.util.Map.Entry;
  */
 public class Slave {
     
-    private static final File TEMP_DIRECTORY = new File(System.getProperty("java.io.tmpdir"));
-    private static final String LOGIN = "echatelin-21" ;
-    private static final int PORT = 9999;
-    private static final String STORAGE_FILENAME = "storage.txt" ;
-    private static final String SPLIT_DIRECTORY = "../data/" ;
-    private static final String[] SPLIT_PORTIONS = {"Deer Beer River", "Car Car River", "Deer Car Beer"} ;
+    
+    private static final int FIRST_PORT = 9999;
+
+
+    private static final String SPLITFILE_PREFIX = "/cal/commoncrawl/CC-MAIN-20230320083513-20230320113513-0007" ;
+    private static final String SPLITFILE_SUFFIX = ".warc.wet" ;
+
+    // private static final String SPLITFILE_PREFIX = "/cal/exterieurs/echatelin-21/dataSLR207/ex1/split-" ;
+    // private static final String SPLITFILE_SUFFIX = ".txt" ;
+
     private static final String[] MACHINE_NAMES = {"tp-3b07-13", "tp-3b07-14", "tp-3b07-15"} ;
-    private static final String MASTER_NAME = "tp-3b07-12" ;
+    // private static final String MASTER_NAME = "tp-3b07-12" ;
 
     ///////////////////////////// MAIN /////////////////////////////
 
     public static void main(String[] args) {
 
         System.out.println("Slave program started.");
+
+        // Get the id of the slave
 
         String hostname = null;
 
@@ -56,17 +66,7 @@ public class Slave {
         }
         System.out.println("Slave id = " + id);
 
-        // if (args.length != 1) {
-        //     help();
-        // }
-        // try {
-        //     int id = Integer.parseInt(args[0]);
-        //     if (id < 0 || id > 2) {
-        //         help();
-        //     }
-        // } catch (NumberFormatException e) {
-        //     help();
-        // }
+        // launch the slave
 
         try {
             new Slave(id).run() ;
@@ -78,20 +78,14 @@ public class Slave {
         System.out.println("Slave program finished.");
     }
 
-    public static void help() {
-        System.out.println("Usage: java Slave <id>");
-        System.out.println("The id must be an integer between 0 and 2.");
-        System.exit(1);
-    }
-
-    ///////////////////////////// CONSTRUCTOR AND RUN /////////////////////////////
+    ///////////////////////////// CONSTRUCTOR, RUN AND OTHERS /////////////////////////////
 
     private final int id ;
     private final Server serverForMaster ;
 
     public Slave(int id) {
         this.id = id ;
-        this.serverForMaster = new Server(PORT + this.id) ;
+        this.serverForMaster = new Server(FIRST_PORT + this.id) ;
     }
 
     public void run() throws CommunicationException {
@@ -101,109 +95,69 @@ public class Slave {
         
         serverForMaster.openConnection();
         Object message = serverForMaster.receiveObject() ;
-        if (message != SynchronizationMessage.START) {
+
+        // Change the message to START if run on the simple example
+        if (message != SynchronizationMessage.MASTER_AWAKE) {
             System.err.println("Slave " + id + " received " + message + " instead of START.") ;
             System.exit(1) ;
         }
 
+        // Prepare to map
+        String portion = getSplitString() ;
+        nextStep(SynchronizationMessage.READY_TO_MAP, SynchronizationMessage.START) ;
+
         // Map
-        String portion = SPLIT_PORTIONS[id] ;
         HashMap<String, Integer> mapResult = map(portion) ;
 
         // Shuffle
-        HashMap<String, Integer>[] toShuffle = prepareForShuffle(mapResult) ;
-        System.out.println("Slave " + id + " toShuffle:") ;
-        Utils.prettyPrintTable(toShuffle) ;
-        HashMap<String, Integer>[] shuffleResult = shuffle(toShuffle) ;
+        HashMap<String, Integer>[] shuffleResult = shuffle(mapResult) ;
 
         // Reduce
         HashMap<String, Integer> reduceResult = reduce(shuffleResult) ;
-        System.out.println("Slave " + id + " reduceResult : " + reduceResult) ;
+        // System.out.println("Slave " + id + " reduceResult : " + reduceResult) ;
     }
-
-    public String getSplitFilename(int id) {
-        return SPLIT_DIRECTORY + "split-" + id + ".txt";
-    }
-    
-    public static File openFile(String filename) {
-        File file = new File(TEMP_DIRECTORY, LOGIN + "/" + filename);
-        try {
-            if (file.createNewFile()) {
-                System.out.println("File created: " + file.getName());
-            } else {
-                System.out.println("File already exists.");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-        return file;
-    }
-
-    ///////////////////////////// STEPS OF MAPREDUCE /////////////////////////////
-    
-    /* public static void receiveSplit() {
-        ServerSocket listener = null;
-        BufferedReader is;
-        BufferedWriter os;
-        Socket socketOfServer = null;
-        
-        File storage = openFile(STORAGE_FILENAME);
-        
-        // Try to open a server socket on port 9999
-        // Note that we can't choose a port less than 1023 if we are not
-        // privileged users (root)
-        
-        
-        try {
-            listener = new ServerSocket(PORT);
-        } catch (IOException e) {
-            System.out.println(e);
-            System.exit(1);
-        }
-        
-        try {
-            System.out.println("Slave is waiting for the files to map...");
-            
-            // Accept client connection request
-            // Get new Socket at Server.    
-            socketOfServer = listener.accept();
-            System.out.println("Have accepted a client!");
-            
-            // Open input and output streams
-            is = new BufferedReader(new InputStreamReader(socketOfServer.getInputStream()));
-            os = new BufferedWriter(new FileWriter(storage));
-            
-            
-            char[] buffer = new char[1024];
-            int count ;
-            // Read data to the server (sent from client).
-            while((count = is.read(buffer)) > 0) {
-                os.write(buffer, 0, count);
-                os.flush();
-            }
-        } catch (IOException e) {
-            System.out.println(e);
-            e.printStackTrace();
-        }
-        System.out.println("Server stopped!");
-    } */
 
     /**
-     * Map function : split a portion of text into words and count the number of occurences of each word
-     * @param portion the portion of text to split
-     * @return a HashMap containing the words and their number of occurences
+     * Read a file and return its content as a String
+     * @param filename the name (whole path) of the file to read
+     * @return the content of the file as a String
      */
-    public static HashMap<String, Integer> map(String portion) {
-        String[] words = portion.split(" ");
-        HashMap<String, Integer> result = new HashMap<String, Integer>();
-        for (String word : words) {
-            Integer value = result.getOrDefault(word, 0);
-            result.put(word, value + 1);
+    public static String readFile(String filename) {
+        // For better performance, we use StringBuilder instead of String
+        StringBuilder stringBuilder = new StringBuilder();
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader(filename));
+            String line;
+            while ((line = br.readLine()) != null) {
+                stringBuilder.append(line).append("\n") ;
+            }
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(1);
+        } finally {
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.exit(1);
+                }
+            }
         }
-        return result;
+        return stringBuilder.toString();
     }
 
+    /**
+     * Retrieve the String to process for this slave, from the split file
+     * @return the String to map for this slave
+     */
+    public String getSplitString() {
+        return readFile(SPLITFILE_PREFIX + id + SPLITFILE_SUFFIX);
+    }
+
+    
     /**
      * Computes the index of the machine to attribute a word to
      * (hashcode of the word modulo the number of machines)
@@ -212,6 +166,39 @@ public class Slave {
      */
     private static final int attributeMachine(String key) {
         return Math.abs(key.hashCode()) % MACHINE_NAMES.length;
+    }
+
+    ///////////////////////////// STEPS OF MAPREDUCE /////////////////////////////
+
+    /**
+     * <strong>Blocking</strong> method to send the message to master to signal the end of the step
+     * and wait for the message to continue
+     * @param endMessage the message to send to master to signal the end of the step
+     * @param continueMessage the message to receive from master to signal the continuation of the step
+     * @throws CommunicationException
+     */
+    private void nextStep(SynchronizationMessage endMessage, SynchronizationMessage continueMessage) throws CommunicationException {
+        serverForMaster.sendObject(endMessage);
+        Object message = serverForMaster.receiveObject();
+        if (message != continueMessage) {
+            System.err.println("Error : expected "+continueMessage+" message, received " + message);
+            System.exit(1);
+        }
+    }
+
+    /**
+     * Map function : split a portion of text into words and count the number of occurences of each word
+     * @param portion the portion of text to split
+     * @return a HashMap containing the words and their number of occurences
+     */
+    public static HashMap<String, Integer> map(String portion) {
+        String[] words = portion.split("[\\p{Punct}|\\s]+");
+        HashMap<String, Integer> result = new HashMap<String, Integer>();
+        for (String word : words) {
+            Integer value = result.getOrDefault(word, 0);
+            result.put(word, value + 1);
+        }
+        return result;
     }
 
     /**
@@ -232,33 +219,17 @@ public class Slave {
     }
 
     /**
-     * <strong>Blocking</strong> method to send the message to master to signal the end of the step
-     * and wait for the message to continue
-     * @param endMessage the message to send to master to signal the end of the step
-     * @param continueMessage the message to receive from master to signal the continuation of the step
-     * @throws CommunicationException
-     */
-    private void nextStep(SynchronizationMessage endMessage, SynchronizationMessage continueMessage) throws CommunicationException {
-        serverForMaster.sendObject(endMessage);
-        Object message = serverForMaster.receiveObject();
-        if (message != continueMessage) {
-            System.err.println("Error : expected "+continueMessage+" message, received " + message);
-            System.exit(1);
-        }
-    }
-
-    /**
      * Send the packets to each machine to reduce them
      * @param packets the packets to shuffle
      */
-    public HashMap<String,Integer>[] shuffle(HashMap<String, Integer>[] packets) throws CommunicationException{
+    public HashMap<String,Integer>[] shuffle(HashMap<String, Integer> pairs) throws CommunicationException{
 
         // listen to other slaves to receive the packets to reduce
 
         SlaveServerThread[] serverThreads = new SlaveServerThread[MACHINE_NAMES.length];
         for (int i = 0  ; i < MACHINE_NAMES.length ; i++) {
             if (i != this.id) {
-                serverThreads[i] = new SlaveServerThread(PORT + i);
+                serverThreads[i] = new SlaveServerThread(FIRST_PORT + i);
                 serverThreads[i].start();
             }
         }
@@ -268,12 +239,14 @@ public class Slave {
 
         nextStep(SynchronizationMessage.READY_TO_SHUFFLE, SynchronizationMessage.SHUFFLE);
 
+        HashMap<String, Integer>[] packets = prepareForShuffle(pairs) ;
+
         // Send the packets to the machines using client threads
 
         Thread[] threads = new Thread[MACHINE_NAMES.length];
         for (int i = 0; i < MACHINE_NAMES.length; i++) {
             if (i != this.id) {
-                threads[i] = new SlaveClientThread(getHostname(i), PORT+this.id, packets[i]);
+                threads[i] = new SlaveClientThread(MACHINE_NAMES[i], FIRST_PORT+this.id, packets[i]);
                 threads[i].start();
             }
         }
@@ -316,13 +289,6 @@ public class Slave {
         return result;
     }
 
-    private String getHostname(int i) {
-        if (i == this.id) {
-            return MASTER_NAME;
-        }
-        return MACHINE_NAMES[i];
-    }
-
     /**
      * Reduce the packets received from the other machines
      * @param shuffledMaps the packets to reduce
@@ -344,7 +310,7 @@ public class Slave {
             }
         }
 
-        serverForMaster.sendObject(result);
+        serverForMaster.sendObject(SynchronizationMessage.REDUCE_END);
         
         return result;
     }
