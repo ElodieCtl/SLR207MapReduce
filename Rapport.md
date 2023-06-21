@@ -30,6 +30,16 @@ There are 3 bash scripts in the folder `DEPLOY` which can only be executed from 
 - `deploy.sh` : clean and deploy the slaves and then master
 - `log.sh` : gather the log files from the remote machines into one (but keeping the individual files)
 
+## 2nd MAP REDUCE
+
+1. Map : transform the maps with words as keys and their occurences as values into a new map where the keys are the occurences and the values are the list of words with this occurence.
+2. Shuffle :
+    - each of the slaves sends to master its minimum and maximum occurence
+    - after collecting all the responses, the master send the global minimum _a_ and maximum _b_
+    - given the number of slaves _n_, the slave _m_ is responsible for the _m_-th range of _(b-a)/n_ elements between _a_ and _b_
+    - each slave send their entries to the responsible machine
+3. Reduce : sort the values received and reduce them (concatenate lists for the same occurence)
+
 ## TODO
 
 - Get rid of the system.exit(1) and terminate correctly

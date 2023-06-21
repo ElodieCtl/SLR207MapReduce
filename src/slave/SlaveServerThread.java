@@ -14,7 +14,7 @@ import src.Server;
 public class SlaveServerThread extends Thread {
 
     private final Server server ;
-    private HashMap<String, Integer> data;
+    private Object data;
 
     /**
      * Constructor.
@@ -34,7 +34,7 @@ public class SlaveServerThread extends Thread {
             Object received = server.receiveObject();
             // printOut("Thread " + this.getId() + " received " + received);
             if (received instanceof HashMap) {
-                data = (HashMap<String, Integer>) received;
+                data = received;
             } else {
                 printErr("received an unknown object: " + received);
             }
@@ -50,9 +50,9 @@ public class SlaveServerThread extends Thread {
      * 
      * <strong>This method should be called after the thread is finished !</strong>,
      * otherwise it may return null.
-     * @return the HashMap
+     * @return the HashMap as an Object
      */
-    public HashMap<String, Integer> getData() {
+    public Object getData() {
         return data;
     }
 

@@ -26,16 +26,24 @@
     <java classname="src.SequentialCounter" classpath="${build}"/>
   </target>
 
-  <target name="run-master" depends="compile"
+  <target name="run-master" depends="compile, input-args"
         description="run the master">
     <!-- Execute the Java code from ${build} -->
-    <java classname="src.master.Master" classpath="${build}"/>
+    <java classname="src.master.Master" classpath="${build}">
+      <arg line="${args}"/>
+    </java>
   </target>
 
-  <target name="run-slave" depends="compile"
+  <target name="run-slave" depends="compile, input-args"
         description="run the slave">
     <!-- Execute the Java code from ${build} -->
-    <java classname="src.slave.Slave" classpath="${build}"/>
+    <java classname="src.slave.Slave" classpath="${build}">
+      <arg line="${args}"/>
+    </java>
+  </target>
+
+  <target name="input-args" unless="args" description="prompts for command line arguments if necessary">
+    <input addProperty="args" message="Type the desired command line arguments:"/>
   </target>
 
   <target name="deploy"
@@ -59,7 +67,7 @@
     <!-- Execute the script to deploy the master and the slaves -->
     <antcall target="deploy"/>
     <!-- Wait 30 seconds -->
-    <sleep seconds="30"/>
+    <sleep seconds="60"/>
     <!-- Execute the script to gather the log files from the master and the slaves -->
     <antcall target="gather-log"/>
   </target>
