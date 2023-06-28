@@ -40,6 +40,33 @@ There are 3 bash scripts in the folder `DEPLOY` which can only be executed from 
     - each slave send their entries to the responsible machine
 3. Reduce : sort the values received and reduce them (concatenate lists for the same occurence)
 
+### Results and comparison with Amdahl's law
+
+We performed the tests on three files from `cal/commoncrawl` (those ending with 00001, 00002 and 00073) to repeat the experiment 3 times.
+The files were splited in 24 to be processed by 1, 2, 4, 6, 8, 12 or 24 slaves. We indicate the average results that we obtained in the following figures (two to ensure readability due to the different duration scales).
+
+![durations1](report/durations-map1-shuffle1-shuffle2.png)
+
+![durations2](report/durations-reduce1-map2-reduce2.png)
+
+We observe that globally, the more slaves there are, the faster the algorithm is, except for the shuffle part for which the results with one slave are better than with two slaves.
+
+At first glance, it can be surprising but it shouldn't be, because the shuffle part is the step during which the machines exchange the data. Thus, in the way we implement the map reduce, with one slave, all the time to create the threads that are listening or sending data and the time for data to be spread through the sockets, is saved. Since the exchange of information through the network is much more time-consuming then the actual data processing, the time saved by the lack of communication balances the time wasted to not parallelize the task.
+
+We can also notice that the rise in performance with a higher number of slaves decreases with the latter, such that between 12 and 24 slaves, the speedup isn't so relevant. To look at this phenomena, we show the total duration of each map reduce and both depending on the number of slaves.
+
+![durations-total1](report/durations-total1.png)
+
+![durations-total2](report/durations-total2.png)
+
+![durations-total](report/durations-total.png)
+
+The experiment perfectly coroborates the **Amdahl's law** which says that even though ... , "the overall performance improvement gained by optimizing a single part of a system is limited by the fraction of time that the improved part is actually used" (see [Wikipedia page](https://en.wikipedia.org/wiki/Amdahl%27s_law)). Formally, the speedup in latency for a fixed workload is 1/(1-p+p/n) where p is the portion of the code that can be parallelized and n the number of processes, and therefore is limited by 1/(1-p). We can compare the results we had with Amdahl's law for p = 0.8.
+
+![speedup](report/speedup.png)
+
+We obtain the same trend.
+
 ## TODO
 
 - Get rid of the system.exit(1) and terminate correctly

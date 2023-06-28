@@ -20,6 +20,6 @@ public enum SynchronizationMessage {
     // coordination for the ranges
     READY_TO_REDUCE_2, // when the slave is ready to reduce again,
     REDUCE_2, // when the master launches the reduce again because all slaves are ready
+    // COMMUNICATION_END, // when the master has finished to communicate with the slaves
     END,
-    ERROR,
 }

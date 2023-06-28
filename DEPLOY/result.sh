@@ -22,7 +22,6 @@ function gather_result {
     local nbSlaves=$1
     # Verify that there is at least nbSlaves+1 computers
     local min_computers=$((nbSlaves + 1))
-    echo ${#available[@]}
     if [ ${#available[@]} -lt $min_computers ]; then
         echo "There must be at least $min_computers computers"
         exit 1

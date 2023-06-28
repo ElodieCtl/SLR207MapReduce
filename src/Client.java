@@ -50,7 +50,7 @@ public class Client {
         } catch (UnknownHostException e) {
             handleError("Don't know about host " + hostname, e);
         } catch (IOException e) {
-            handleError("Couldn't get I/O for the connection to ", e);
+            handleError("Couldn't get I/O for the connection to "+ getAddress(), e);
         } catch (Exception e) {
             handleError("Unknown error", e);
         }

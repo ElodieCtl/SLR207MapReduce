@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import src.CommunicationException;
 import src.Range;
@@ -24,20 +25,22 @@ import src.Utils;
  * The port 9999 + i is attributed to the slave i,
  * except for the id of this slave which corresponds to the port for the master.
  */
-public class Slave {
+public class Slave extends Thread {
     
     
     private static final int FIRST_PORT = 9999;
 
 
-    private static final String SPLITFILE_PREFIX = "/cal/commoncrawl/CC-MAIN-20230320083513-20230320113513-0007" ;
-    private static final String SPLITFILE_SUFFIX = ".warc.wet" ;
+    private static String SPLITFILE_PREFIX = "/cal/commoncrawl/CC-MAIN-20230320083513-20230320113513-000" ;
+    // private static final String SPLITFILE_SUFFIX = ".warc.wet" ;
+    private static final String SPLITFILE_SUFFIX = ".txt" ;
 
     // private static final String SPLITFILE_PREFIX = "/cal/exterieurs/echatelin-21/dataSLR207/ex1/split-" ;
     // private static final String SPLITFILE_SUFFIX = ".txt" ;
 
     private final String[] MACHINE_NAMES ;
     private final int NB_SLAVES ;
+    private final int NB_SPLITS ;
     // private static final String MASTER_NAME = "tp-3b07-12" ;
 
     ///////////////////////////// MAIN /////////////////////////////
@@ -47,29 +50,34 @@ public class Slave {
      * 
      * <h2>Arguments</h2>
      * <ul>
-     * <li>args[0] : filename where there is the list of available computers</li>
-     * <li>args[1] : NB_SLAVES</li>
-     * <li>args[2] : filename where there is the list of files to use as inputs of mapreduce</li>
+     * <li>args[1] : filename where there is the list of available computers</li>
+     * <li>args[0] : NB_SLAVES</li>
+     * <li>args[2] : NB_SPLITS</li>
+     * <li>args[3] : SPLITFILE_PREFIX</li>
      * </ul>
      * 
-     * @param args Not used yet.
-     * 
+     * @param args the arguments : filename NB_SLAVES NB_SPLITS
      */
     public static void main(String[] args) {
 
         System.out.println("Slave program started.");
-
-        // TODO : get the list of files to use as inputs of mapreduce
-        if (args.length != 2) {
-            System.err.println("Usage: java Slave <filename> <NB_SLAVES> <filename>");
+        // Utils.printMemorySizes();
+        
+        if (args.length != 4) {
+            System.err.println("Usage: java Slave <NB_SLAVES> <filename> <NB_SPLITS> <SPLITFILE_PREFIX>");
+            System.out.println("Arguments were :");
+            Utils.prettyPrintTable(args);
             System.exit(1);
         }
-        String filename = args[0];
-        int nbSlaves = 0;
+        String filename = args[1];
+        SPLITFILE_PREFIX = args[3] ;
+        int nbSlaves = 0 ;
+        int nbSplits = 0;
         try {
-            nbSlaves = Integer.parseInt(args[1]);
+            nbSlaves = Integer.parseInt(args[0]);
+            nbSplits = Integer.parseInt(args[2]);
         } catch (NumberFormatException e) {
-            System.err.println("Usage: java Slave <filename> <NB_SLAVES> <filename>");
+            System.err.println("Usage: java Slave <filename> <NB_SLAVES> <NB_SPLITS>");
             System.exit(1);
         }
         String[] machineNames = Utils.readComputersFromFile(filename, nbSlaves);
@@ -102,11 +110,11 @@ public class Slave {
         // launch the slave
 
         try {
-            new Slave(id, machineNames, nbSlaves).run() ;
-        } catch (CommunicationException e) {
-            e.printStackTrace();
-            System.exit(1);
-        } catch (Exception e) {
+            Slave s = new Slave(id, machineNames, nbSlaves, nbSplits) ;
+            s.start() ;
+            s.join() ;
+            System.out.println("Slave " + id + " finished.");
+        } catch (Throwable e) {
             e.printStackTrace();
             System.exit(1);
         }
@@ -119,17 +127,21 @@ public class Slave {
     private final int id ;
     private final Server serverForMaster ;
 
-    public Slave(int id, String[] machineNames, int nbSlaves) {
+    public Slave(int id, String[] machineNames, int nbSlaves, int nbSplits) {
         this.id = id ;
         this.MACHINE_NAMES = machineNames ;
         this.NB_SLAVES = nbSlaves ;
+        this.NB_SPLITS = nbSplits ;
         this.serverForMaster = new Server(FIRST_PORT + this.id) ;
     }
 
-    public void run() throws CommunicationException {
+    @Override
+    public void run() {
         System.out.println("Slave " + id + " started.");
 
         // Open connection to the master and wait for the start message
+
+        try {
         
         serverForMaster.openConnection();
         Object message = serverForMaster.receiveObject() ;
@@ -141,7 +153,10 @@ public class Slave {
         }
 
         // Prepare to map
+        // String[] portion = getSplitString() ;
         String portion = getSplitString() ;
+
+        System.out.println("Slave " + id + " is ready to map.") ;
         nextStep(SynchronizationMessage.READY_TO_MAP, SynchronizationMessage.START) ;
 
         // Map
@@ -163,23 +178,35 @@ public class Slave {
         HashMap<Integer, List<String>> reduceResult2 = reduce2(shuffleResult2) ;
         sort(reduceResult2, "/tmp/echatelin-21/result-" + id + ".txt") ;
         // System.out.println("Slave " + id + " reduceResult : " + reduceResult) ;
+
+        } catch (CommunicationException e) {
+            e.printStackTrace();
+            System.exit(1);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     /**
      * Read a file and return its content as a String
      * @param filename the name (whole path) of the file to read
+     * @param sb the StringBuilder to use
      * @return the content of the file as a String
      */
-    public static String readFile(String filename) {
+    // public static List<String> readFile(String filename) {
+    public static String readFile(String filename, StringBuilder sb) {
         // For better performance, we use StringBuilder instead of String
-        StringBuilder stringBuilder = new StringBuilder();
         BufferedReader br = null;
+        // List<String> stringList = new ArrayList<String>() ;
         try {
             br = new BufferedReader(new FileReader(filename));
             String line;
             while ((line = br.readLine()) != null) {
-                stringBuilder.append(line).append("\n") ;
+                // stringList.add(line) ;
+                sb.append(line).append("\n") ;
             }
+            // stringList = br.lines().collect(Collectors.toList()) ;
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(1);
@@ -193,7 +220,8 @@ public class Slave {
                 }
             }
         }
-        return stringBuilder.toString();
+        // return stringList ;
+        return sb.toString() ;
     }
 
     /**
@@ -201,8 +229,32 @@ public class Slave {
      * @return the String to map for this slave
      */
     public String getSplitString() {
-        return readFile(SPLITFILE_PREFIX + id + SPLITFILE_SUFFIX);
+        StringBuilder sb = new StringBuilder() ;
+        for (int i = 0; i < NB_SPLITS ; i++) {
+            int id = i + NB_SPLITS * this.id ;
+            if (id < 10) {
+                readFile(SPLITFILE_PREFIX + "0" + id + SPLITFILE_SUFFIX, sb) ;
+            } else {
+                readFile(SPLITFILE_PREFIX + id + SPLITFILE_SUFFIX, sb) ;
+            }
+        }
+        return sb.toString() ;
     }
+
+    // Version with List<String>
+    ///////////////////////////////////////////////////////////////////////////////////////
+    // public String[] getSplitString() {
+    //     List<String> result = new ArrayList<String>() ;
+    //     for (int i = 0; i < NB_SPLITS ; i++) {
+    //         int id = i + NB_SPLITS * this.id ;
+    //         if (id < 10) {
+    //             result.addAll(readFile(SPLITFILE_PREFIX + "0" + id + SPLITFILE_SUFFIX)) ;
+    //         } else {
+    //             result.addAll(readFile(SPLITFILE_PREFIX + id + SPLITFILE_SUFFIX)) ;
+    //         }
+    //     }
+    //     return result.toArray(new String[0]) ;
+    // }
 
     
     /**
@@ -221,7 +273,7 @@ public class Slave {
      * @param range the global range of the occurences
      * @return the index of the machine to attribute the occurence to
      */
-    private  final int attributeMachine2(int key, Range range) {
+    private final int attributeMachine2(int key, Range range) {
         return range.attributeTo(key, NB_SLAVES);
     }
 
@@ -243,14 +295,10 @@ public class Slave {
         }
     }
 
-    /**
-     * Map function : split a portion of text into words and count the number of occurences of each word
-     * @param portion the portion of text to split
-     * @return a HashMap containing the words and their number of occurences
-     */
-    public static HashMap<String, Integer> map(String portion) {
-        String[] words = portion.split("[\\p{Punct}|\\s]+");
+    public HashMap<String, Integer> map(String portion) {
+        System.out.println("Slave " + id + " is mapping all portions.") ;
         HashMap<String, Integer> result = new HashMap<String, Integer>();
+        String[] words = portion.split("[\\p{Punct}|\\s]+");
         for (String word : words) {
             word = word.toLowerCase();
             Integer value = result.getOrDefault(word, 0);
@@ -259,6 +307,25 @@ public class Slave {
         return result;
     }
 
+    // Version with List<String>
+    ///////////////////////////////////////////////////////////////////////////////////////
+    // public HashMap<String, Integer> map(String[] portions) {
+    //     System.out.println("Slave " + id + " is mapping all portions.") ;
+    //     HashMap<String, Integer> result = new HashMap<String, Integer>();
+    //     for (String portion : portions) {
+    //         // HashMap<String, Integer> mapResult = map(portion) ;
+    //         // result.putAll(mapResult) ;
+    //         String[] words = portion.split("[\\p{Punct}|\\s]+");
+    //         for (String word : words) {
+    //             word = word.toLowerCase();
+    //             Integer value = result.getOrDefault(word, 0);
+    //             result.put(word, value + 1);
+    //         }
+    //     }
+    //     return result;
+    // }
+
+    @SuppressWarnings("unchecked")
     /**
      * Prepare the packets to send to each machine
      * @param pairs the pairs to send
@@ -285,10 +352,10 @@ public class Slave {
 
         // listen to other slaves to receive the packets to reduce
 
-        SlaveServerThread[] serverThreads = new SlaveServerThread[NB_SLAVES];
+        SlaveServerThread<String, Integer>[] serverThreads = new SlaveServerThread[NB_SLAVES];
         for (int i = 0  ; i < NB_SLAVES ; i++) {
             if (i != this.id) {
-                serverThreads[i] = new SlaveServerThread(FIRST_PORT + i);
+                serverThreads[i] = new SlaveServerThread<>(FIRST_PORT + i);
                 serverThreads[i].start();
             }
         }
@@ -305,7 +372,7 @@ public class Slave {
         Thread[] threads = new Thread[NB_SLAVES];
         for (int i = 0; i < NB_SLAVES; i++) {
             if (i != this.id) {
-                threads[i] = new SlaveClientThread(MACHINE_NAMES[i], FIRST_PORT+this.id, packets[i]);
+                threads[i] = new SlaveClientThread<String, Integer>(MACHINE_NAMES[i], FIRST_PORT+this.id, packets[i]);
                 threads[i].start();
             }
         }
@@ -443,10 +510,10 @@ public class Slave {
 
         // listen to other slaves to receive the packets to reduce
 
-        SlaveServerThread[] serverThreads = new SlaveServerThread[NB_SLAVES];
+        SlaveServerThread<Integer,List<String>>[] serverThreads = new SlaveServerThread[NB_SLAVES];
         for (int i = 0  ; i < NB_SLAVES ; i++) {
             if (i != this.id) {
-                serverThreads[i] = new SlaveServerThread(FIRST_PORT + i);
+                serverThreads[i] = new SlaveServerThread<>(FIRST_PORT + i);
                 serverThreads[i].start();
             }
         }
@@ -465,7 +532,7 @@ public class Slave {
         Thread[] threads = new Thread[NB_SLAVES];
         for (int i = 0; i < NB_SLAVES; i++) {
             if (i != this.id) {
-                threads[i] = new SlaveClientThread(MACHINE_NAMES[i], FIRST_PORT+this.id, packets[i]);
+                threads[i] = new SlaveClientThread<Integer, List<String>>(MACHINE_NAMES[i], FIRST_PORT+this.id, packets[i]);
                 threads[i].start();
             }
         }
@@ -540,26 +607,21 @@ public class Slave {
         BufferedWriter br = null;
         try {
             br = new BufferedWriter(new FileWriter(filename));
-            final ArrayList<Integer> keys = new ArrayList<Integer>();
-
-            reducedResult.keySet().stream()
+            List<Integer> keys = reducedResult.keySet()
+                            .stream()
                             .sorted()
-                            .forEach(i -> {
-                                keys.add(i);
-            });
+                            .collect(Collectors.toList()) ;
 
             for (Integer i : keys) {
                 List<String> value = reducedResult.get(i);
-                if (value != null && !value.isEmpty()) {
-                    StringBuilder sb = new StringBuilder("" + i + " : [");
-                    for (String s : value) {
-                        sb.append(s).append(", ");
-                    }
-                    sb.delete(sb.length()-2, sb.length());
-                    sb.append("]\n");
-                    br.write(sb.toString());
-                    br.flush();
+                StringBuilder sb = new StringBuilder("" + i + " : [");
+                for (String s : value) {
+                    sb.append(s).append(", ");
                 }
+                sb.delete(sb.length()-2, sb.length());
+                sb.append("]\n");
+                br.write(sb.toString());
+                br.flush();
             }
 
             // Range myRange = globalRange.computeMachineRange(this.id, NB_SLAVES);

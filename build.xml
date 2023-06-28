@@ -1,6 +1,6 @@
 <project name="SLR207Project" default="all" basedir=".">
   <description>
-    Project which implements a Map Reduce
+    Project which implements a Map Reduce to count the occurences of words in a file.
   </description>
   <!-- set global properties for this build -->
   <property name="src" location="src"/>
@@ -22,28 +22,33 @@
 
   <target name="run-sequential" depends="compile"
         description="run the sequential project">
-    <!-- Execute the Java code from ${build} -->
+    <!-- Execute the sequential Java code from ${build} -->
     <java classname="src.SequentialCounter" classpath="${build}"/>
   </target>
 
-  <target name="run-master" depends="compile, input-args"
+  <target name="run-master" depends="compile, input-args-master"
         description="run the master">
-    <!-- Execute the Java code from ${build} -->
+    <!-- Execute the Java code for master from ${build} -->
     <java classname="src.master.Master" classpath="${build}">
-      <arg line="${args}"/>
+      <arg line="${args-master}"/>
     </java>
   </target>
 
-  <target name="run-slave" depends="compile, input-args"
+  <target name="run-slave" depends="compile, input-args-slave"
         description="run the slave">
-    <!-- Execute the Java code from ${build} -->
-    <java classname="src.slave.Slave" classpath="${build}">
-      <arg line="${args}"/>
+    <!-- Execute the Java code for a slave from ${build} -->
+    <java classname="src.slave.Slave" classpath="${build}" fork="true">
+      <jvmarg value="-Xmx4g"/>
+      <arg line="${args-slave}"/>
     </java>
   </target>
 
-  <target name="input-args" unless="args" description="prompts for command line arguments if necessary">
-    <input addProperty="args" message="Type the desired command line arguments:"/>
+  <target name="input-args-master" unless="args-master" description="prompts for command line arguments if necessary">
+    <input addProperty="args-master" message="Please type filename NB_SLAVES :"/>
+  </target>
+
+  <target name="input-args-slave" unless="args-slave" description="prompts for command line arguments if necessary">
+    <input addProperty="args-slave" message="Please type NB_SLAVES filename NB_SPLITS SPLITFILE_PREFIX :"/>
   </target>
 
   <target name="deploy"
@@ -54,27 +59,28 @@
     </exec>
   </target>
 
-  <target name="gather-log"
-        description="deploy the project">
-    <!-- Execute the script to gather the log files from the master and the slaves -->
-    <exec executable="${bash}">
-      <arg value="${deploy}/log.sh"/>
-    </exec>
-  </target>
-
   <target name="all"
         description="deploy the project">
     <!-- Execute the script to deploy the master and the slaves -->
     <antcall target="deploy"/>
-    <!-- Wait 30 seconds -->
-    <sleep seconds="60"/>
-    <!-- Execute the script to gather the log files from the master and the slaves -->
-    <antcall target="gather-log"/>
   </target>
 
   <target name="clean"
         description="clean up">
     <!-- Delete the ${build} directory trees -->
     <delete dir="${build}"/>
+  </target>
+
+  <target name="help"
+        description="describes the useful commands">
+    <echo>Here are the commands that you can use with ant :
+      - ant compile : compile the project
+      - ant run-sequential : run the sequential project
+      - ant run-master : run the master, either with the option -Dargs-master or with letting ant to ask you the mandatory arguments (filename NB_SLAVES)
+      - ant run-slave : run the slave, either with the option -Dargs-slave or with letting ant to ask you the mandatory arguments (NB_SLAVES filename NB_SPLITS SPLITFILE_PREFIX)
+      - ant deploy : deploy the project
+      - ant all : deploy the project
+      - ant clean : clean up the project (build directory)
+Make your choice !</echo>
   </target>
 </project>

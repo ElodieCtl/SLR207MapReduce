@@ -1,5 +1,9 @@
 package src.master;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+
 import src.Client;
 import src.CommunicationException;
 import src.Range;
@@ -24,14 +28,18 @@ public class Master {
 
     public static void main(String[] args) {
 
+       //  Utils.printMemorySizes();
+
         if (args.length != 2) {
             System.err.println("Usage: java Master <filename> <NB_SLAVES>");
+            System.out.println("Arguments were :");
+            Utils.prettyPrintTable(args);
             System.exit(1);
         }
-        String filename = args[0];
+        String filename = args[1];
         int nbSlaves = 0;
         try {
-            nbSlaves = Integer.parseInt(args[1]);
+            nbSlaves = Integer.parseInt(args[0]);
         } catch (NumberFormatException e) {
             System.err.println("Usage: java Slave <filename> <NB_SLAVES>");
             System.exit(1);
@@ -82,6 +90,7 @@ public class Master {
 
         // Print the duration of each step
         printChronos();
+        printChronos("results.csv");
 
     }
 
@@ -194,6 +203,47 @@ public class Master {
         System.out.println("Map : " + chronos[4] + "ms");
         System.out.println("Shuffle : " + chronos[5] + "ms");
         System.out.println("Reduce : " + chronos[6] + "ms");
+    }
+
+    private void printChronos(String filename) {
+        StringBuilder sb = new StringBuilder("" + NB_SLAVES);
+        // each step
+        for (long l : chronos) {
+            sb.append(";").append(l);
+        }
+        // total of the first mapreduce
+        long total1 = 0;
+        for (int i = 1; i < 4; i++) {
+            total1 += chronos[i];
+        }
+        sb.append(";").append(total1);
+        // total of the second mapreduce
+        long total2 = 0;
+        for (int i = 4; i < 7; i++) {
+            total2 += chronos[i];
+        }
+        sb.append(";").append(total2);
+        // total of the two mapreduce
+        sb.append(";").append(total1 + total2);
+        BufferedWriter br = null;
+        try {
+            br = new BufferedWriter(new FileWriter(filename));
+            br.write(sb.toString());
+            br.newLine();
+            br.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(1);
+        } finally {
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.exit(1);
+                }
+            }
+        }
     }
     
 }

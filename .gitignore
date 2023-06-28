@@ -1,6 +1,7 @@
 *.class
 build
 data
-log
+logs
 examples
 result
+splits
