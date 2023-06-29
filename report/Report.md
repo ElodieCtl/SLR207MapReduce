@@ -14,11 +14,13 @@ Here are the results that I had on the different files :
 | sante_publique               | 946                | 55                | 1001            | de - la - des - les - et         |
 | common_crawl                 | 10996              | 4260              | 15256           | the - to - end - of - de         |
 
+## With MapReduce
+
 ### Implementation
 
 #### General
 
-To parallelize the process of counting words and sort them, we used a distributed map reduce twice : once for counting the occurences and once for sorting the results by occurences. They rely on the same principles : files or parts of a file are distributed among slaves, which do 3 steps then - map, shuffle and reduce -, while they send information to master, which is responsible to coordinate them, namely launch each step when all teh slaves have finished the previous one.
+To parallelize the process of counting words and sorting them, we used a distributed map reduce twice : once for counting the occurences and once for sorting the results by occurences. They rely on the same principles : files or parts of a file are distributed among slaves, which do 3 steps then - map, shuffle and reduce -, while they send information to master, which is responsible to coordinate them, namely launch each step when all teh slaves have finished the previous one.
 
 At the beginning, slaves are launched first (either manually or with the script) an then the master (_make sure that the time between the launches is sufficient for the slaves to create the servers_, otherwise you will get a "connection refused" exception). The master launches the slaves, which have recognized themselves thanks to the list of computers' names given as a parameter (their identifier is their number in this list). The slaves starts to retrieve the portion that they are attributed to, thanks to their id and the prefix given as a parameter. Finally, after the master collects all the responses indicating the end of the file loading, it sends a message to slaves to start the map reduce process.
 
@@ -36,14 +38,14 @@ To achieve this, master and slaves comunicate through __sockets__. Generic class
 2. __Shuffle__ :
     - each of the slaves sends to master its minimum and maximum occurence
     - after collecting all the responses, the master send the global minimum _a_ and maximum _b_
-    - given the number of slaves _n_, the slave _m_ is responsible for the _m_-th range of _(b-a)/n_ elements between _a_ and _b_
+    - given the number of slaves _n_, the slave _m_ is responsible for the _m_-th range of $(b-a)/n$ elements between _a_ and _b_
     - each slave send their entries to the responsible machines
-3. __Reduce__ : sort the values received and reduce them (concatenate lists for the same occurence). Each of the slaves writes its results in a file. You can gather them on the computer where you launch the program with the script `DEPLOY/result.sh` (the only argument needed is the number of slaves).
+3. __Reduce__ : sort the values received and reduce them (concatenate lists for the same occurence). Each of the slaves writes its results in a file. You can gather them on the computer where you launch the program with the script `scripts/result.sh` (the only argument needed is the number of slaves).
 
 ### Results and comparison with Amdahl's law
 
 We performed the tests on three files from `cal/commoncrawl` (those ending with 00001, 00002 and 00073) to repeat the experiment 3 times.
-The files were splited in 24 to be processed by 1, 2, 4, 6, 8, 12 or 24 slaves. We indicate the average results that we obtained in the following figures (two to ensure readability due to the different duration scales).
+The files were splited in 24 to be processed by 1, 2, 3, 4, 6, 8, 12 or 24 slaves. We indicate the average results that we obtained in the following figures (two to ensure readability due to the different duration scales).
 
 ![durations1](durations-map1-shuffle1-shuffle2.png)
 
@@ -53,7 +55,7 @@ We observe that globally, the more slaves there are, the faster the algorithm is
 
 At first glance, it can be surprising but it shouldn't be, because the shuffle part is the step during which the machines exchange the data. Thus, in the way we implement the map reduce, with one slave, all the time to create the threads that are listening or sending data and the time for data to be spread through the sockets, is saved. Since the exchange of information through the network is much more time-consuming then the actual data processing, the time saved by the lack of communication balances the time wasted to not parallelize the task.
 
-We can also notice that the rise in performance with a higher number of slaves decreases with the latter, such that between 12 and 24 slaves, the speedup isn't so relevant. To look at this phenomena, we show the total duration of each map reduce and both depending on the number of slaves.
+We can also notice that the rise in performance with a higher number of slaves decreases with the latter, such that between 12 and 24 slaves, the speedup isn't so relevant. To look at this phenomenon, we show the total duration of each map reduce and both depending on the number of slaves.
 
 ![durations-total1](durations-total1.png)
 
@@ -61,7 +63,7 @@ We can also notice that the rise in performance with a higher number of slaves d
 
 ![durations-total](durations-total.png)
 
-The experiment perfectly coroborates the **Amdahl's law** which says that even though a higher number of processes leads to better performance, "the overall performance improvement gained by optimizing a single part of a system is limited by the fraction of time that the improved part is actually used" (see the [Wikipedia page](https://en.wikipedia.org/wiki/Amdahl%27s_law)). Formally, the speedup in latency for a fixed workload is $1/(1-p+p/n)$ where p is the portion of the code that can be parallelized and n the number of processes, and therefore is limited by $1/(1-p)$. We can compare the results we had with Amdahl's law for $p = 0.8$.
+The experiment perfectly corroborates the **Amdahl's law** which says that even though a higher number of processes leads to better performance, "the overall performance improvement gained by optimizing a single part of a system is limited by the fraction of time that the improved part is actually used" (see the [Wikipedia page](https://en.wikipedia.org/wiki/Amdahl%27s_law)). Formally, the speedup in latency for a fixed workload is $1/(1-p+p/n)$ where p is the portion of the code that can be parallelized and n the number of processes, and therefore is limited by $1/(1-p)$. We can compare the results we had with Amdahl's law for $p = 0.8$.
 
 ![speedup](speedup.png)
 
