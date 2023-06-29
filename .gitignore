@@ -1,6 +1,13 @@
 *.class
 build
-data
+
+data/*
+!data/input.txt
+!data/forestier_mayotte.txt
+!data/domaine_public_fluvial.txt
+!data/deontologie_police_nationale.txt
+!data/sante_publique.txt
+
 logs
 examples
 result

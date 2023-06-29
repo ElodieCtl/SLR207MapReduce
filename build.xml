@@ -5,7 +5,7 @@
   <!-- set global properties for this build -->
   <property name="src" location="src"/>
   <property name="build" location="build"/>
-  <property name="deploy" location="DEPLOY"/>
+  <property name="deploy" location="scripts"/>
   <!-- the executable to run a bash script -->
   <property name="bash" location="C:\Program Files\Git\git-bash.exe"/>
 
